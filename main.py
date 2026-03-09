@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
-import numpy as np
+
 
 def get_23_resampling_taps(N = 23):
     # 1. Calculate Kaiser beta for 40dB attenuation (approx 3.3953)
@@ -33,7 +33,11 @@ num_sc = n_rb * 12
 snr_db = 40
 
 resample_factor = 2
+
+fs_d2a2d = resample_factor * fs
+
 tx_fir1 = get_23_resampling_taps()
+np.random.seed(42)  # Use any constant integer
 
 def lte_tx_symbol(symbol_idx):
     cp_len = cp0 if (symbol_idx % 7 == 0) else cp_other
@@ -44,15 +48,31 @@ def lte_tx_symbol(symbol_idx):
     buffer[start : start + num_sc] = syms
     time_sig = np.fft.ifft(np.fft.ifftshift(buffer))
     tx_out = np.concatenate([time_sig[-cp_len:], time_sig])
-    if resample_factor >1:
 
-        tx_upsampled = np.zeros(len(tx_out) * 2, dtype=complex)
-        tx_upsampled[::2] = tx_out
-
-        # Filter to smooth out the zeros (Anti-Imaging)
-        tx_out = np.convolve(tx_upsampled, tx_fir1, mode='same')
 
     return tx_out, bits
+
+def tx_dfe(tx_in):
+
+    if resample_factor >1:
+
+        tx_upsampled = np.zeros(len(tx_in) * 2, dtype=complex)
+        tx_upsampled[::2] = tx_in
+
+        # Filter to smooth out the zeros (Anti-Imaging)
+        target_len = len(tx_upsampled)
+        tx_full = np.convolve(tx_upsampled, tx_fir1, mode='full')
+        tx_out = tx_full[11: 11 + target_len]
+
+        return tx_out
+
+
+def rx_dfe(rx_in):
+    if resample_factor > 1:
+        rx_full = np.convolve(rx_in, tx_fir1 / 2, mode='full')
+        rx_aligned = rx_full[11: 11 + len(rx_in)]
+        return  rx_aligned[::2]
+
 
 def add_awgn(signal, snr):
     sig_power = np.mean(np.abs(signal)**2)
@@ -61,12 +81,8 @@ def add_awgn(signal, snr):
     1j * np.random.normal(0, np.sqrt(noise_power/2), len(signal)))
     return signal + noise
 
+
 def lte_rx_symbol(rx_in, symbol_idx):
-    if resample_factor > 1:
-        rx_in = np.convolve(rx_in, tx_fir1 / 2, mode='same')
-        rx_in = rx_in[::2]
-
-
     cp_len = cp0 if (symbol_idx % 7 == 0) else cp_other
     no_cp = rx_in[cp_len:]
     freq = np.fft.fftshift(np.fft.fft(no_cp))
@@ -85,16 +101,75 @@ last_freq_data = None # Start as empty
 
 print(f"LTE {bw}MHz | FFT {n_fft} | SNR {snr_db}dB")
 
+current_pos = 0
+
+
+all_tx_sig = []
+all_tx_bits = []
+
 for s_idx in range(7):
+    # This should return the UPSAMPLED (interpolated) signal
     tx_sig, tx_bits = lte_tx_symbol(s_idx)
-    rx_sig = add_awgn(tx_sig, snr_db)
-    rx_bits, rx_samples, last_freq_data = lte_rx_symbol(rx_sig, s_idx)
-    all_rx_samples.extend(rx_samples)
-    all_rx_sig_samples.extend(rx_sig)
+    all_tx_sig.extend(tx_sig)
+    all_tx_bits.append(tx_bits)
 
 
+all_tx_sig = tx_dfe(all_tx_sig)
+# Now apply the channel/noise to the WHOLE stream
+rx_sig_total = add_awgn(np.array(all_tx_sig), snr_db)
+rx_sig = rx_dfe(rx_sig_total)
+
+if resample_factor == 1:
+    delay_offset = 0
+else:
+    delay_offset = (len(tx_fir1) - 1) // (2)
+
+for s_idx in range(7):
+    cp_len = cp0 if (s_idx % 7 == 0) else cp_other
+    symbol_total_length = cp_len + n_fft
+
+    # Extract the specific segment for this symbol from the total stream
+    # Apply the delay_offset to keep the FFT window aligned
+    start_idx = current_pos #+ delay_offset
+    end_idx = start_idx + symbol_total_length
+    symbol_segment = rx_sig[start_idx: end_idx]
+
+    # Process this segment
+    rx_bits, extracted, freq = lte_rx_symbol(symbol_segment, s_idx)
+    total_errors += np.sum(all_tx_bits[s_idx] != rx_bits)
+    all_rx_samples.extend(extracted)
+    current_pos += symbol_total_length
+
+
+
+
+
+
+
+# Verify the spectrum of the continuous stream
+# Use return_onesided=False for complex IQ data
+f, pxx = signal.welch(rx_sig_total, fs=fs_d2a2d, nperseg=1024, return_onesided=False)
+
+f = np.fft.fftshift(f)
+pxx = np.fft.fftshift(pxx)
+
+# Normalize to the average power in the center (passband)
+# instead of just the absolute max to get a cleaner 0dB line
+passband_indices = np.where(np.abs(f) < (bw * 1e6 / 2))
+normalization_factor = np.mean(pxx[passband_indices])
+pxx_normalized = pxx / normalization_factor
+
+plt.plot(f / 1e6, 10 * np.log10(pxx_normalized))
+plt.title("Normalized Spectrum (0 dB Passband)")
+plt.ylim([-60, 5])
+plt.grid(True)
+plt.show()
 print("-" * 30)
 print(f"Final BER: {total_errors / (7 * num_sc * 2)}")
+print("-" * 30)
+'''
+
+
 
 plt.figure(figsize=(12, 5))
 
@@ -103,6 +178,7 @@ plt.subplot(2, 2, 1)
 plt.scatter(np.real(all_rx_samples), np.imag(all_rx_samples), s=1, color='blue', alpha=0.5)
 plt.title(f"QPSK Constellation @ {snr_db}dB")
 plt.grid(True); plt.axhline(0, color='black'); plt.axvline(0, color='black')
+
 
 plt.subplot(2, 2, 3)
 psd = 10 * np.log10(np.abs(rx_sig)**2 + 1e-12)
@@ -127,3 +203,5 @@ plt.grid(True)
 
 plt.tight_layout()
 plt.show()
+'''
+
