@@ -2,8 +2,8 @@
 git status
 
 
-$ver = "v1.2"
-$comment = git batch file added"
+$ver = "v1.3"
+$comment = " add config support interpolation 16"
 
 
 # 2. בקשת אישור מהמשתמש
