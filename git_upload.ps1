@@ -2,7 +2,7 @@
 git status
 
 
-$ver = "v1.1"
+$ver = "v1.2"
 $comment = git batch file added"
 
 

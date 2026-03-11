@@ -13,7 +13,7 @@ def get_23_resampling_taps(N = 23):
     return h
 
 # Usage
-h_resample = get_23_resampling_taps()
+h_resample = get_23_resampling_taps(31)
 
 bw_options = [1.4, 3, 5, 10, 15, 20]
 rb_array    = [6, 15, 25, 50, 75, 100]
@@ -30,13 +30,16 @@ n_fft = fft_array[idx]
 cp0 = cp_first_array[idx]
 cp_other = cp_normal_array[idx]
 num_sc = n_rb * 12
-snr_db = 40
+snr_db = 60
 
 resample_factor = 2
 
 fs_d2a2d = resample_factor * fs
 
+#decimation_fir = [-43 -86 36 106 -145 -141 625 1179]/2048;
+
 tx_fir1 = get_23_resampling_taps()
+#tx_fir2 = [-1, 0,  9, 16, 9,  0, -1 ]/16
 np.random.seed(42)  # Use any constant integer
 
 def lte_tx_symbol(symbol_idx):
@@ -159,11 +162,49 @@ passband_indices = np.where(np.abs(f) < (bw * 1e6 / 2))
 normalization_factor = np.mean(pxx[passband_indices])
 pxx_normalized = pxx / normalization_factor
 
-plt.plot(f / 1e6, 10 * np.log10(pxx_normalized))
-plt.title("Normalized Spectrum (0 dB Passband)")
-plt.ylim([-60, 5])
-plt.grid(True)
+# --- Calculate PSD for 2Fs signal (Red) ---
+f_2fs, pxx_2fs = signal.welch(rx_sig_total, fs=fs_d2a2d, nperseg=1024, return_onesided=False)
+f_2fs = np.fft.fftshift(f_2fs)
+pxx_2fs = 10 * np.log10(np.fft.fftshift(pxx_2fs) + 1e-12)
+
+# --- Calculate PSD for 1Fs signal (Blue) ---
+f_1fs, pxx_1fs = signal.welch(rx_sig, fs=fs, nperseg=1024, return_onesided=False)
+f_1fs = np.fft.fftshift(f_1fs)
+pxx_1fs = 10 * np.log10(np.fft.fftshift(pxx_1fs) + 1e-12)
+
+# --- Calculate Filter Response (Black) ---
+# We map the digital frequency (0 to 1) to the 2Fs frequency scale
+w, h_resp = signal.freqz(tx_fir1, worN=1024, whole=True)
+f_filter = w / (2 * np.pi) * fs_d2a2d
+f_filter = np.where(f_filter >= fs_d2a2d/2, f_filter - fs_d2a2d, f_filter) # Wrap frequencies
+# Re-sort for plotting
+sort_idx = np.argsort(f_filter)
+f_filter = f_filter[sort_idx]
+mag_filter = 20 * np.log10(np.abs(h_resp[sort_idx]) + 1e-12)
+
+# --- Plotting with "Hold" (Overlaid) ---
+plt.figure(figsize=(12, 6))
+
+# 1. PSD of 2Fs (Red)
+plt.plot(f_2fs / 1e6, pxx_2fs - np.max(pxx_2fs), color='red', label='PSD @ 2Fs (Interpolated)', alpha=0.7)
+
+# 2. PSD of 1Fs (Blue)
+plt.plot(f_1fs / 1e6, pxx_1fs - np.max(pxx_1fs), color='blue', label='PSD @ 1Fs (Original)', linewidth=2)
+
+# 3. Filter Response (Black)
+# Shifted up so 0dB matches the passband of the signals
+plt.plot(f_filter / 1e6, mag_filter, color='black', linestyle='--', label='TX_FIR1 Response', linewidth=1.5)
+
+plt.title(f"Spectral Analysis: LTE {bw}MHz Signal")
+plt.xlabel("Frequency (MHz)")
+plt.ylabel("Normalized Magnitude (dB)")
+plt.legend(loc='upper right')
+plt.grid(True, which='both', linestyle='--', alpha=0.5)
+plt.ylim([-80, 10]) # Adjust to see the stopband clearly
+plt.xlim([-fs_d2a2d/(2*1e6), fs_d2a2d/(2*1e6)])
+
 plt.show()
+
 print("-" * 30)
 print(f"Final BER: {total_errors / (7 * num_sc * 2)}")
 print("-" * 30)
