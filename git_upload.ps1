@@ -2,8 +2,8 @@
 git status
 
 
-$ver = "v1.3"
-$comment = " add config support interpolation 16"
+$ver = "v1.4"
+$comment = " add mmw support - 8x100 "
 
 
 # 2. בקשת אישור מהמשתמש

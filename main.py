@@ -7,7 +7,7 @@ import config
 
 
 
-snr_db = -12
+snr_db = 6
 
 
 #decimation_fir = [-43 -86 36 106 -145 -141 625 1179]/2048;
@@ -25,41 +25,67 @@ print(f"LTE {config.bw}MHz | FFT {config.n_fft} | SNR {snr_db}dB")
 
 current_pos = 0
 
+all_tx_sig = [[] for _ in range(config.Nc)]
+all_tx_bits = [[] for _ in range(config.Nc)]
 
-all_tx_sig = []
-all_tx_bits = []
+for f_idx in range(config.Nc):
+    for s_idx in range(7):
+        # Generate the signal (e.g., length 2192 * resample_factor)
+        tx_sig, tx_bits = lte_tx_symbol(s_idx)
 
-for s_idx in range(7):
-    # This should return the UPSAMPLED (interpolated) signal
-    tx_sig, tx_bits = lte_tx_symbol(s_idx)
-    all_tx_sig.extend(tx_sig)
-    all_tx_bits.append(tx_bits)
-
+        # Store in the row corresponding to the current carrier
+        all_tx_sig[f_idx].extend(tx_sig)
+        all_tx_bits[f_idx].append(tx_bits)
 
 all_tx_sig = tx_dfe(np.array(all_tx_sig))
 # Now apply the channel/noise to the WHOLE stream
-rx_sig_total = add_awgn(np.array(all_tx_sig), snr_db)
+rx_sig_total = add_awgn(all_tx_sig, snr_db)
 rx_sig = rx_dfe(rx_sig_total)
 
 
 delay_offset = 0
 
+# Initialize error counter and sample storage per channel
+total_errors = np.zeros(config.Nc)
+all_rx_samples = [[] for _ in range(config.Nc)]
 
-for s_idx in range(7):
-    cp_len = config.cp0 if (s_idx % 7 == 0) else config.cp_other
-    symbol_total_length = cp_len + config.n_fft
+# Outer Loop: Process each of the 8 channels
+for f_idx in range(config.Nc):
+    current_pos = 0
+    # Pick the 1D signal for the current carrier
+    rx_carrier_sig = rx_sig[f_idx]
 
-    # Extract the specific segment for this symbol from the total stream
-    # Apply the delay_offset to keep the FFT window aligned
-    start_idx = current_pos #+ delay_offset
-    end_idx = start_idx + symbol_total_length
-    symbol_segment = rx_sig[start_idx: end_idx]
+    # Inner Loop: Process the 7 symbols for this specific carrier
+    for s_idx in range(7):
+        # CP length logic (80 for s_idx=0, 72 otherwise for 120kHz)
+        cp_len = config.cp_first if s_idx == 0 else config.cp_normal
+        symbol_total_length = cp_len + config.n_fft
 
-    # Process this segment
-    rx_bits, extracted, freq = lte_rx_symbol(symbol_segment, s_idx)
-    total_errors += np.sum(all_tx_bits[s_idx] != rx_bits)
-    all_rx_samples.extend(extracted)
-    current_pos += symbol_total_length
+        # Windowing: Extract the segment from the stream
+        start_idx = current_pos + delay_offset
+        end_idx = start_idx + symbol_total_length
+
+        # Guard against index out of bounds
+        if end_idx > len(rx_carrier_sig):
+            break
+
+        symbol_segment = rx_carrier_sig[start_idx:end_idx]
+
+        # Standard LTE/5G RX processing
+        rx_bits, extracted, freq = lte_rx_symbol(symbol_segment, s_idx)
+
+        # Update error count for THIS specific carrier
+        # Comparing against the 2D bit array: [carrier][symbol]
+        total_errors[f_idx] += np.sum(all_tx_bits[f_idx][s_idx] != rx_bits)
+
+        # Save extracted QAM samples for constellation plots
+        all_rx_samples[f_idx].extend(extracted)
+
+        current_pos += symbol_total_length
+
+# Reporting
+for i in range(config.Nc):
+    print(f"Channel {i} Errors: {total_errors[i]}")
 
 
 print("-" * 30)

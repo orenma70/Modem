@@ -5,13 +5,13 @@ import config
 
 
 resample_factor = config.resample_factor
-cp0 = config.cp0
+cp0 = config.cp_first
 n_fft = config.n_fft
 tx_fir3 = config.tx_fir3
 num_sc = config.num_sc
 tx_fir2 = config.tx_fir2
 tx_fir1 = config.tx_fir1
-cp_other = config.cp_other
+cp_other = config.cp_normal
 fs = config.fs
 fs_d2a2d = config.fs_d2a2d
 
@@ -27,19 +27,33 @@ def lte_rx_symbol(rx_in, symbol_idx):
     return rx_bits, extracted, freq
 
 def rx_dfe(rx_in):
-    rx_out = rx_in
-    if config.resample_factor >= 16:
-        rx_out = decimation2(rx_in, tx_fir3)
-    else:
-        rx_out = rx_in
-    if resample_factor >= 8:
-        rx_out = decimation2(rx_out, tx_fir3)
-    if resample_factor >= 4:
-        rx_out = decimation2(rx_out, tx_fir2)
-    if resample_factor >= 2:
-        rx_out = decimation2(rx_out, tx_fir1)
+    all_rx_carriers = []
+    nc = config.Nc
+    Nco_fs = fs * resample_factor
 
-    return rx_out
+
+    #plot_welch(rx_out, fs=fs_d2a2d, color='blue', label='PSD', fig_flag='new')
+    for i in range(nc):
+        rx_out = rx_in
+
+        n = np.arange(len(rx_out))
+        nco = np.exp(-1j * 2 * np.pi * config.Nf[i] / Nco_fs * n)
+        rx_out = rx_out * nco
+        #plot_welch(rx_out, fs=Nco_fs, label=f'Carrier {i} at DC', fig_flag='new')
+        if config.resample_factor >= 16:
+            rx_out = decimation2(rx_out, tx_fir3)
+        if resample_factor >= 8:
+            rx_out = decimation2(rx_out, tx_fir3)
+        if resample_factor >= 4:
+            rx_out = decimation2(rx_out, tx_fir2)
+        if resample_factor >= 2:
+            rx_out = decimation2(rx_out, tx_fir1)
+
+        #plot_welch(rx_out, fs=fs, color='blue', label='PSD', fig_flag='new')
+
+        all_rx_carriers.append(rx_out)
+
+    return np.array(all_rx_carriers)
 
 def lte_tx_symbol(symbol_idx):
     cp_len = cp0 if (symbol_idx % 7 == 0) else cp_other
@@ -56,18 +70,34 @@ def lte_tx_symbol(symbol_idx):
 
 
 def tx_dfe(tx_in):
-    plot_welch(tx_in, fs=fs, color='blue', label='PSD', fig_flag='new')
-    tx_out = tx_in
-    if resample_factor >= 2:
-        tx_out =interpolation2(tx_in,tx_fir1)
-    if resample_factor >= 4:
-        tx_out = interpolation2(tx_out, tx_fir2)
-    if resample_factor >= 8:
-        tx_out = interpolation2(tx_out, tx_fir3)
-    if resample_factor >= 16:
-        tx_out = interpolation2(tx_out, tx_fir3)
+    # tx_in is a 2D array: shape (8, samples)
+    nc = tx_in.shape[0]
+    Nco_fs = fs * resample_factor
+    all_interpolated = []
 
-    return tx_out
+    for i in range(nc):
+        # Process each carrier individually using your existing logic
+        row = tx_in[i]
+
+        if resample_factor >= 2:
+            row = interpolation2(row, tx_fir1)
+        if resample_factor >= 4:
+            row = interpolation2(row, tx_fir2)
+        if resample_factor >= 8:
+            row = interpolation2(row, tx_fir3)
+        if resample_factor >= 16:
+            row = interpolation2(row, tx_fir3)
+
+        n = np.arange(len(row))
+        nco = np.exp(1j * 2 * np.pi * config.Nf[i]/Nco_fs * n)
+        row = row * nco
+
+        all_interpolated.append(row)
+
+    combined_signal = np.sum(all_interpolated, axis=0)
+
+    combined_signal = combined_signal / nc
+    return np.array(combined_signal)
 
 
 
