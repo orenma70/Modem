@@ -10,6 +10,18 @@ def get_23_resampling_taps(N = 23):
     h = signal.firwin(N, cutoff=0.5, window=('kaiser', beta)) * 2
     return h
 
+farrow_taps = np.array([
+    [  9,   17,  -11,  -35,  -11],
+    [-17,  -71,    2,   96,   42],
+    [ 24,  223,  170, -116, -104],
+    [229,    0, -327,    0,  142],
+    [ 24, -223,  170,  116, -104],
+    [-17,   71,    2,  -96,   42],
+    [  9,  -17,  -11,   35,  -11]
+])
+
+
+
 # Usage
 h_resample = get_23_resampling_taps(31)
 
@@ -31,7 +43,7 @@ if mmw:
     # For 120kHz, Normal CP is 36 samples for a 512 FFT
     cp_normal_array = [36, 72, 144, 288]
     cp_first_array  = [44, 80, 160, 320] # Slightly longer first symbol
-    idx = 1  # 10 MHz
+    idx = 1  # 100 MHz
 else:
     # Standard LTE - 15 kHz SCS
     scs = 15000
@@ -47,13 +59,17 @@ fs_array = [n * scs for n in fft_array]
 
 bw = bw_options[idx]
 fs = fs_array[idx] # Current sampling frequency
+fs_d2a2d = 38.4e6*52 #resample_factor * fs
+resample_factor = int(np.floor(2 ** np.log2(fs_d2a2d/fs)))
+f_nco = fs * resample_factor
+m_ftc = f_nco / fs_d2a2d
 n_rb = rb_array[idx]
 n_fft = fft_array[idx]
 cp_first = cp_first_array[idx]
 cp_normal = cp_normal_array[idx]
 num_sc = n_rb * 12
-resample_factor = 16
-fs_d2a2d = resample_factor * fs
+
+
 tx_fir1 = get_23_resampling_taps()
 tx_fir2 = np.array([3, 0, -25, 0, 150, 256, 150, 0, -25, 0, 3])/256
 tx_fir3 = np.array([-1, 0,  9, 16, 9,  0, -1 ])/16

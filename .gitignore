@@ -1,0 +1,30 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.ipynb_checkpoints/
+
+# --- DSP / Data Files ---
+# Ignore large binary data files or saved simulation results
+*.mat
+*.npy
+*.npz
+*.wav
+*.csv
+
+# --- Octave / MATLAB ---
+# Ignore history and temporary workspace files
+octave-workspace
+.octave_hist
+core
+*.asv
+
+# --- OS / IDEs ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

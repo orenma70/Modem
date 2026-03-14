@@ -2,8 +2,8 @@
 git status
 
 
-$ver = "v1.4"
-$comment = " add mmw support - 8x100 "
+$ver = "v1.7"
+$comment = " ftc added "
 
 
 # 2. בקשת אישור מהמשתמש

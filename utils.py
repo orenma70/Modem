@@ -1,8 +1,9 @@
-import matplotlib.pyplot as plt
-from scipy import signal
+
+
 import numpy as np
 import config
-
+from ftc_fir import farrow_resample
+from utils2 import plot_welch
 
 resample_factor = config.resample_factor
 cp0 = config.cp_first
@@ -14,6 +15,7 @@ tx_fir1 = config.tx_fir1
 cp_other = config.cp_normal
 fs = config.fs
 fs_d2a2d = config.fs_d2a2d
+f_nco = config.f_nco
 
 def lte_rx_symbol(rx_in, symbol_idx):
     cp_len = cp0 if (symbol_idx % 7 == 0) else cp_other
@@ -30,11 +32,11 @@ def rx_dfe(rx_in):
     all_rx_carriers = []
     nc = config.Nc
     Nco_fs = fs * resample_factor
-
+    ftc_out = farrow_resample(rx_in, fs_d2a2d, f_nco)
 
     #plot_welch(rx_out, fs=fs_d2a2d, color='blue', label='PSD', fig_flag='new')
     for i in range(nc):
-        rx_out = rx_in
+        rx_out = ftc_out
 
         n = np.arange(len(rx_out))
         nco = np.exp(-1j * 2 * np.pi * config.Nf[i] / Nco_fs * n)
@@ -53,7 +55,10 @@ def rx_dfe(rx_in):
 
         all_rx_carriers.append(rx_out)
 
+
+
     return np.array(all_rx_carriers)
+
 
 def lte_tx_symbol(symbol_idx):
     cp_len = cp0 if (symbol_idx % 7 == 0) else cp_other
@@ -97,7 +102,10 @@ def tx_dfe(tx_in):
     combined_signal = np.sum(all_interpolated, axis=0)
 
     combined_signal = combined_signal / nc
-    return np.array(combined_signal)
+
+    ftc_out = farrow_resample(combined_signal, f_nco, fs_d2a2d)
+
+    return np.array(ftc_out)
 
 
 
@@ -128,29 +136,3 @@ def decimation2(rx_in, fir_taps):
     return  rx_out[::2]
 
 
-def plot_welch(t_sig, fs, color='red', label='PSD', fig_flag='hold'):
-    # 1. Create a new figure if requested
-    if fig_flag == 'new':
-        plt.figure(figsize=(12, 6))
-
-    # 2. Calculate PSD
-    f, pxx = signal.welch(t_sig, fs=fs, nperseg=1024*2, window='blackman', return_onesided=False)
-
-    # 3. Shift and Convert to dB
-    f = np.fft.fftshift(f)
-    pxx_db = 10 * np.log10(np.fft.fftshift(pxx) + 1e-12)
-
-
-
-    # 4. Plot (Normalized to 0dB peak for comparison)
-    plt.plot(f / 1e6, pxx_db - np.max(pxx_db), color=color, label=label, alpha=0.7)
-
-    # Standard formatting that applies to both new and hold
-    plt.grid(True, which='both', alpha=0.3)
-    plt.xlabel("Frequency (MHz)")
-    plt.ylabel("Normalized Magnitude (dB)")
-    plt.legend()
-    plt.grid(True, which='both', linestyle='--', alpha=0.5)
-    plt.ylim([-80, 10])  # Adjust to see the stopband clearly
-    plt.xlim([-fs / (2 * 1e6), fs / (2 * 1e6)])
-    plt.show()
