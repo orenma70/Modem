@@ -2,8 +2,8 @@
 git status
 
 
-$ver = "v1.8"
-$comment = " split files "
+$ver = "v1.9"
+$comment = " add hc cfr "
 
 
 # 2. בקשת אישור מהמשתמש

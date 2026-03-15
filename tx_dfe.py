@@ -2,6 +2,7 @@ import numpy as np
 import config
 from ftc_fir import farrow_resample
 from utils import interpolation2
+from cfr import cfr
 
 resample_factor = config.resample_factor
 cp0 = config.cp_first
@@ -14,6 +15,7 @@ cp_other = config.cp_normal
 fs = config.fs
 fs_d2a2d = config.fs_d2a2d
 f_nco = config.f_nco
+cfr_max_db = config.cfr_max_db
 
 def tx_dfe(tx_in):
     # tx_in is a 2D array: shape (8, samples)
@@ -45,5 +47,7 @@ def tx_dfe(tx_in):
     combined_signal = combined_signal / nc
 
     ftc_out = farrow_resample(combined_signal, f_nco, fs_d2a2d)
+
+    cfr_out = cfr(ftc_out, cfr_max_db)
 
     return np.array(ftc_out)

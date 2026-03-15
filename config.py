@@ -2,6 +2,10 @@ from numba.np.arrayobj import np_array
 from scipy import signal
 import numpy as np
 
+
+bw = 100
+cfr_max_db = 6
+
 def get_23_resampling_taps(N = 23):
     # 1. Calculate Kaiser beta for 40dB attenuation (approx 3.3953)
     beta = signal.kaiser_beta(40)
