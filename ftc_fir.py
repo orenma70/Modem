@@ -53,10 +53,10 @@ if __name__ == "__main__":
 
     # Assuming the functions are in the same file or imported
 
-    fs_in = 100e6
-    fs_out = 150e6
-    f_sine = 10e6
-    N = 100
+    fs_in = 1966.08e6
+    fs_out = 1996.8e6
+    f_sine = 350e6
+    N = 100000
 
     # Generate Input
     t_in = np.arange(N) / fs_in
@@ -78,18 +78,21 @@ if __name__ == "__main__":
     # Using .real since the signal is complex (np.exp(1j...))
     num_samples_to_show = 200
 
+    '''
     plt.plot(t_in_plot[:num_samples_to_show] * 1e9, sin_in[:num_samples_to_show].real,
-             'r-o', label='Input (1966.08 MHz)', markersize=4)
-    plt.plot(t_out_plot[:int(num_samples_to_show * fs_out / fs_in)]* 1e9,
-             ftc_out[:int(num_samples_to_show * fs_out / fs_in)].real,
-             'g-x', label='Farrow Output (1996.8 MHz)', markersize=4)
+                 'r-o', label='Input (1966.08 MHz)', markersize=4)
+        plt.plot(t_out_plot[:int(num_samples_to_show * fs_out / fs_in)]* 1e9,
+                 ftc_out[:int(num_samples_to_show * fs_out / fs_in)].real,
+                 'g-x', label='Farrow Output (1996.8 MHz)', markersize=4)
+    
+        plt.title(f'Time Domain Comparison: {f_sine / 1e6} MHz Sine Wave')
+        plt.xlabel('Time (ns)')
+        plt.ylabel('Amplitude')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+    '''
 
-    plt.title(f'Time Domain Comparison: {f_sine / 1e6} MHz Sine Wave')
-    plt.xlabel('Time (ns)')
-    plt.ylabel('Amplitude')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
 
 
     plot_welch(ftc_out, fs_in, color='green', label='PSD', fig_flag='hold')

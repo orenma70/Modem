@@ -2,7 +2,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from utils import plot_welch, lte_rx_symbol, lte_tx_symbol, rx_dfe, tx_dfe, add_awgn
+from utils import plot_welch, lte_rx_symbol, lte_tx_symbol, add_awgn
+from rx_dfe import rx_dfe
+from tx_dfe import tx_dfe
+
 import config
 
 
@@ -92,7 +95,7 @@ print("-" * 30)
 print(f"Final BER: {total_errors / (7 * config.num_sc * 2)}")
 print("-" * 30)
 
-
+print(f"Fs : Nco- D2A :  {config.f_nco}  {config.fs_d2a2d}")
 
 
 

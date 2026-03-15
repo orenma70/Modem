@@ -2,8 +2,8 @@
 git status
 
 
-$ver = "v1.7"
-$comment = " ftc added "
+$ver = "v1.8"
+$comment = " split files "
 
 
 # 2. בקשת אישור מהמשתמש

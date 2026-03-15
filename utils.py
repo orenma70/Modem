@@ -28,36 +28,6 @@ def lte_rx_symbol(rx_in, symbol_idx):
     rx_bits[1::2] = (extracted.imag < 0).astype(int)
     return rx_bits, extracted, freq
 
-def rx_dfe(rx_in):
-    all_rx_carriers = []
-    nc = config.Nc
-    Nco_fs = fs * resample_factor
-    ftc_out = farrow_resample(rx_in, fs_d2a2d, f_nco)
-
-    #plot_welch(rx_out, fs=fs_d2a2d, color='blue', label='PSD', fig_flag='new')
-    for i in range(nc):
-        rx_out = ftc_out
-
-        n = np.arange(len(rx_out))
-        nco = np.exp(-1j * 2 * np.pi * config.Nf[i] / Nco_fs * n)
-        rx_out = rx_out * nco
-        #plot_welch(rx_out, fs=Nco_fs, label=f'Carrier {i} at DC', fig_flag='new')
-        if config.resample_factor >= 16:
-            rx_out = decimation2(rx_out, tx_fir3)
-        if resample_factor >= 8:
-            rx_out = decimation2(rx_out, tx_fir3)
-        if resample_factor >= 4:
-            rx_out = decimation2(rx_out, tx_fir2)
-        if resample_factor >= 2:
-            rx_out = decimation2(rx_out, tx_fir1)
-
-        #plot_welch(rx_out, fs=fs, color='blue', label='PSD', fig_flag='new')
-
-        all_rx_carriers.append(rx_out)
-
-
-
-    return np.array(all_rx_carriers)
 
 
 def lte_tx_symbol(symbol_idx):
@@ -74,38 +44,6 @@ def lte_tx_symbol(symbol_idx):
     return tx_out, bits
 
 
-def tx_dfe(tx_in):
-    # tx_in is a 2D array: shape (8, samples)
-    nc = tx_in.shape[0]
-    Nco_fs = fs * resample_factor
-    all_interpolated = []
-
-    for i in range(nc):
-        # Process each carrier individually using your existing logic
-        row = tx_in[i]
-
-        if resample_factor >= 2:
-            row = interpolation2(row, tx_fir1)
-        if resample_factor >= 4:
-            row = interpolation2(row, tx_fir2)
-        if resample_factor >= 8:
-            row = interpolation2(row, tx_fir3)
-        if resample_factor >= 16:
-            row = interpolation2(row, tx_fir3)
-
-        n = np.arange(len(row))
-        nco = np.exp(1j * 2 * np.pi * config.Nf[i]/Nco_fs * n)
-        row = row * nco
-
-        all_interpolated.append(row)
-
-    combined_signal = np.sum(all_interpolated, axis=0)
-
-    combined_signal = combined_signal / nc
-
-    ftc_out = farrow_resample(combined_signal, f_nco, fs_d2a2d)
-
-    return np.array(ftc_out)
 
 
 
