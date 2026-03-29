@@ -2,8 +2,8 @@
 git status
 
 
-$ver = "v2.0"
-$comment = " add cordic cfr "
+$ver = "v2.1"
+$comment = " add pa  "
 
 
 # 2. בקשת אישור מהמשתמש

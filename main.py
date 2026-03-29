@@ -2,12 +2,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from utils import plot_welch, lte_rx_symbol, lte_tx_symbol, add_awgn
+from utils import lte_rx_symbol, lte_tx_symbol, add_awgn
 from rx_dfe import rx_dfe
 from tx_dfe import tx_dfe
-
+from pa_amp import pa_amp
 import config
-
+from utils2 import plot_welch
 
 
 snr_db = 6
@@ -42,7 +42,14 @@ for f_idx in range(config.Nc):
 
 all_tx_sig = tx_dfe(np.array(all_tx_sig))
 # Now apply the channel/noise to the WHOLE stream
-rx_sig_total = add_awgn(all_tx_sig, snr_db)
+#plot_welch(all_tx_sig, fs = config.fs_d2a2d, color='blue', label='PSD', fig_flag='new')
+#pa_out = pa_amp(all_tx_sig, 'rapp', p=3, v_sat=1.2)  #
+pa_out = pa_amp(all_tx_sig, 'volterra', a1=[0.9, 0.1], a3=[-0.04, -0.01])
+#plot_welch(pa_out, fs = config.fs_d2a2d, color='red', label='PSD', fig_flag='new')
+
+
+
+rx_sig_total = add_awgn(pa_out, snr_db)
 rx_sig = rx_dfe(rx_sig_total)
 
 
@@ -99,7 +106,7 @@ print(f"Fs : Nco- D2A :  {config.f_nco}  {config.fs_d2a2d}")
 
 
 
-#plot_welch(rx_sig, fs = fs, color='blue', label='PSD', fig_flag='hold')
+#
 
 '''
 # --- Calculate Filter Response (Black) ---
