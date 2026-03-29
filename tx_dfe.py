@@ -1,7 +1,7 @@
 import numpy as np
 import config
 from ftc_fir import farrow_resample
-from utils import interpolation2
+from utils import interpolation2, get_rms_db
 from cfr import cfr
 
 resample_factor = config.resample_factor
@@ -46,8 +46,8 @@ def tx_dfe(tx_in):
 
     combined_signal = combined_signal / nc
 
-    ftc_out = farrow_resample(combined_signal, f_nco, fs_d2a2d)
+    ftc_out = 2*farrow_resample(combined_signal, f_nco, fs_d2a2d)
+    rms_db = get_rms_db(ftc_out)
+    cfr_out, cfr_in_val, cfr_out_val = cfr(ftc_out, cfr_max_db)
 
-    cfr_out = cfr(ftc_out, cfr_max_db)
-
-    return np.array(ftc_out)
+    return cfr_out

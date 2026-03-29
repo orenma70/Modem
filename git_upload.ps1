@@ -2,8 +2,8 @@
 git status
 
 
-$ver = "v1.9"
-$comment = " add hc cfr "
+$ver = "v2.0"
+$comment = " add cordic cfr "
 
 
 # 2. בקשת אישור מהמשתמש

@@ -17,6 +17,19 @@ fs = config.fs
 fs_d2a2d = config.fs_d2a2d
 f_nco = config.f_nco
 
+
+
+
+def get_rms_db(signal):
+    # 1. Calculate the mean of the squares
+    # (Use np.abs for complex signals to get magnitude squared)
+    rms_linear = np.sqrt(np.mean(np.abs(signal) ** 2))
+
+    # 2. Convert to dB (20 * log10 for amplitude)
+    rms_db = 20 * np.log10(rms_linear)
+
+    return rms_db
+
 def lte_rx_symbol(rx_in, symbol_idx):
     cp_len = cp0 if (symbol_idx % 7 == 0) else cp_other
     no_cp = rx_in[cp_len:]
@@ -38,8 +51,8 @@ def lte_tx_symbol(symbol_idx):
     start = (n_fft - num_sc) // 2
     buffer[start : start + num_sc] = syms
     time_sig = np.fft.ifft(np.fft.ifftshift(buffer))
-    tx_out = np.concatenate([time_sig[-cp_len:], time_sig])
-
+    tx_out = 8*np.concatenate([time_sig[-cp_len:], time_sig])
+    rms_db = get_rms_db(tx_out)
 
     return tx_out, bits
 
